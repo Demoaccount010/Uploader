@@ -16,7 +16,7 @@ def send_message(chat_id, text):
 
 
 def extract_media(msg):
-    """Return media dict so we can re-upload."""
+    """Extract media info from user message."""
     if "video" in msg:
         return msg["video"], "video"
     if "document" in msg:
@@ -39,15 +39,25 @@ def webhook():
     msg = data.get("message", {})
 
     chat_id = msg.get("chat", {}).get("id")
+    text = msg.get("text")
+
+    # 1️⃣ START COMMAND
+    if text and text.lower() == "/start":
+        send_message(chat_id,
+                     "👋 *Welcome!*\n\n"
+                     "Send me any *video / document*, and I will automatically upload it "
+                     "to your channel.\n\n"
+                     "Then your stream bot can generate a working stream link! 🔥")
+        return "ok"
+
+    # 2️⃣ MEDIA HANDLING
     media_obj, media_type = extract_media(msg)
 
     if not media_obj:
-        send_message(chat_id, "❌ Send me a video/document to upload.")
+        send_message(chat_id, "📥 Send me a *video/document* and I will upload it to your channel.")
         return "ok"
 
-    file_id = media_obj["file_id"]
-
-    # 1️⃣ Copy media to UPLOAD_CHANNEL
+    # 3️⃣ REAL UPLOAD USING copyMessage
     copy_res = requests.post(f"{API}/copyMessage", json={
         "chat_id": UPLOAD_CHANNEL,
         "from_chat_id": chat_id,
@@ -55,11 +65,11 @@ def webhook():
     }).json()
 
     if not copy_res.get("ok"):
-        send_message(chat_id, f"❌ Failed to upload:\n{copy_res.get('description')}")
+        send_message(chat_id, f"❌ Upload failed:\n{copy_res.get('description')}")
         return "ok"
 
-    # 2️⃣ Reply to user
-    send_message(chat_id, "✅ Video uploaded to channel!")
+    # 4️⃣ SUCCESS
+    send_message(chat_id, "✅ Video successfully uploaded to your channel!")
 
     return "ok"
 
